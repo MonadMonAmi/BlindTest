@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Blind Test</title>
+  <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.js"></script>
+</head>
+<body>
+  <div id="app">
+    <h1>Blind Test</h1>
+
+    <!-- Écran de départ -->
+    <div v-if="screen === 'setup'">
+      <p>{{ videos.length }} vidéos dans la liste (modifier <code>videos.js</code>).</p>
+      <p>
+        <label>Durée de l'extrait (secondes) :
+          <input type="number" min="1" v-model.number="clipDuration">
+        </label>
+      </p>
+      <p>
+        <label><input type="checkbox" v-model="shuffleOrder"> Ordre aléatoire</label>
+      </p>
+      <button @click="startGame">Commencer</button>
+    </div>
+
+    <!-- Partie en cours -->
+    <div v-if="screen === 'playing' && current">
+      <p>Vidéo {{ index + 1 }} / {{ playlist.length }} — Score : {{ score }}</p>
+
+      <div v-if="!revealed">
+        <p>Temps restant : {{ timeLeft }} s</p>
+        <form @submit.prevent="submitGuess">
+          <label>Titre et/ou artiste :
+            <input v-model="guess" autofocus>
+          </label>
+          <button type="submit">Valider</button>
+        </form>
+        <p>
+          <button @click="playClip">Réécouter l'extrait</button>
+          <button @click="skip">Passer</button>
+        </p>
+      </div>
+
+      <div v-else>
+        <p>Réponse : <b>{{ current.title }}</b> — {{ current.artist }}</p>
+        <p v-if="lastResult.guess">
+          Ta réponse : « {{ lastResult.guess }} » —
+          titre {{ lastResult.titleOk ? '✔' : '✘' }},
+          artiste {{ lastResult.artistOk ? '✔' : '✘' }}
+          (+{{ lastResult.points }})
+        </p>
+        <button @click="next">{{ isLast ? 'Voir les résultats' : 'Suivant' }}</button>
+      </div>
+
+      <p><button @click="endGame">Arrêter la partie</button></p>
+    </div>
+
+    <!-- Lecteur YouTube : toujours présent, masqué tant que la réponse n'est pas révélée -->
+    <div :style="{ display: screen === 'playing' ? 'block' : 'none', opacity: revealed ? 1 : 0 }">
+      <div id="player"></div>
+    </div>
+
+    <!-- Résultats -->
+    <div v-if="screen === 'end'">
+      <h2>Score final : {{ score }} / {{ playlist.length * 2 }}</h2>
+      <table border="1">
+        <tr><th>#</th><th>Titre</th><th>Artiste</th><th>Ta réponse</th><th>Points</th></tr>
+        <tr v-for="(r, i) in results" :key="i">
+          <td>{{ i + 1 }}</td>
+          <td>{{ r.video.title }} {{ r.titleOk ? '✔' : '' }}</td>
+          <td>{{ r.video.artist }} {{ r.artistOk ? '✔' : '' }}</td>
+          <td>{{ r.guess || '(passé)' }}</td>
+          <td>{{ r.points }}</td>
+        </tr>
+      </table>
+      <p><button @click="screen = 'setup'">Rejouer</button></p>
+    </div>
+  </div>
+
+  <script src="videos.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
