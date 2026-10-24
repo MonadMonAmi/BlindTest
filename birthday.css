@@ -13,6 +13,7 @@
   --bad: #ef476f;
   --gold: #ffb703;
   --radius: 22px;
+  --banner-size: 360px; /* diamètre du bandeau rond à gauche */
   --shadow: 0 10px 30px rgba(60, 20, 90, 0.18);
 
   /* Couleurs des boutons de réponse */
@@ -47,7 +48,7 @@ body.birthday {
   margin: 0 auto;
   padding: 20px 24px;
   display: grid;
-  grid-template-columns: minmax(240px, 300px) 1fr;
+  grid-template-columns: var(--banner-size) 1fr; /* 1re colonne vide : réservée au bandeau rond */
   column-gap: 24px;
   align-items: start;
 }
@@ -56,21 +57,23 @@ body.birthday {
 
 /* ---------- Bandeau ---------- */
 
+/* Bandeau rond, fixé au milieu à gauche : le décor reste visible autour */
 .banner {
-  grid-column: 1 !important;
-  grid-row: 1 / span 10;
-  position: sticky;
-  top: 20px;
-  height: calc(100vh - 40px);
+  position: fixed;
+  left: max(24px, (100vw - 1400px) / 2 + 24px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--banner-size);
+  height: var(--banner-size);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 18px;
+  gap: 10px;
   text-align: center;
-  padding: 28px 22px;
+  padding: 40px 36px 30px;
   background: var(--card);
-  border-radius: var(--radius);
+  border-radius: 50%;
   box-shadow: var(--shadow);
   border: 4px dashed var(--accent);
 }
@@ -92,7 +95,12 @@ body.birthday {
   color: var(--muted);
 }
 
+/* Badge "10" posé comme un autocollant sur le bord du cercle */
 .banner-age {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  margin-left: -60px;
   width: 120px;
   height: 120px;
   display: grid;
@@ -426,8 +434,12 @@ body.birthday {
 
 @media (max-width: 900px) {
   .birthday #app { display: block; padding: 16px; }
-  .banner { position: static; height: auto; margin-bottom: 20px; flex-direction: row; flex-wrap: wrap; gap: 12px 20px; }
-  .banner-age { width: 70px; height: 70px; font-size: 34px; }
+  .banner {
+    position: static; transform: none; width: auto; height: auto;
+    margin-bottom: 20px; padding: 20px; border-radius: var(--radius);
+    flex-direction: row; flex-wrap: wrap; gap: 12px 20px;
+  }
+  .banner-age { position: static; margin: 0; width: 70px; height: 70px; font-size: 34px; }
 }
 
 @media (max-width: 600px) {
