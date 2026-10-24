@@ -7,10 +7,16 @@
 </head>
 <body>
   <div id="app">
-    <h1>Blind Test</h1>
+    <!-- Bandeau du thème anniversaire (index.html?anniversaire, voir birthday.js) -->
+    <header v-if="birthday" class="banner">
+      <div class="banner-age">{{ birthday.age }}</div>
+      <h1>Joyeux anniversaire {{ birthday.name }} !</h1>
+      <p>Le grand blind test des {{ birthday.age }} ans 🎂</p>
+    </header>
+    <h1 v-else>Blind Test</h1>
 
     <!-- Écran de départ -->
-    <div v-if="screen === 'setup'">
+    <div v-if="screen === 'setup'" class="screen setup">
       <h2>Liste de vidéos</h2>
       <p>
         <select v-model="selectedListId">
@@ -44,7 +50,7 @@
       <p>
         <label><input type="checkbox" v-model="shuffleOrder"> Ordre aléatoire</label>
       </p>
-      <button @click="startGame">Commencer</button>
+      <button class="primary" @click="startGame">Commencer</button>
     </div>
 
     <!-- Création / modification d'une liste -->
@@ -56,16 +62,19 @@
     ></list-editor>
 
     <!-- Partie en cours -->
-    <div v-if="screen === 'playing' && current">
-      <p>Vidéo {{ index + 1 }} / {{ playlist.length }} — Score : {{ score }}</p>
+    <div v-if="screen === 'playing' && current" class="screen playing">
+      <p class="status">
+        <span class="round">Vidéo {{ index + 1 }} / {{ playlist.length }}</span> —
+        <span class="score">Score : {{ score }}</span>
+      </p>
 
       <div v-if="!revealed">
-        <p>Temps restant : {{ timeLeft }} s</p>
+        <p class="timer" :class="{ urgent: timeLeft <= 5 }">Temps restant : <b>{{ timeLeft }}</b> s</p>
 
         <!-- Mode boutons -->
-        <div v-if="answerMode">
+        <div v-if="answerMode" class="choices">
           <p v-for="choice in choices" :key="choice">
-            <button @click="choose(choice)">{{ choice }}</button>
+            <button class="choice" @click="choose(choice)">{{ choice }}</button>
           </p>
         </div>
 
@@ -77,13 +86,14 @@
           <button type="submit">Valider</button>
         </form>
 
-        <p>
+        <p class="actions">
           <button @click="playClip">Réécouter l'extrait</button>
           <button @click="skip">Passer</button>
         </p>
       </div>
 
-      <div v-else>
+      <div v-else class="reveal" :class="lastResult.points ? 'win' : 'lose'">
+        <p v-if="birthday" class="verdict">{{ lastResult.points ? 'Bravo ! 🎉' : 'Raté… 🙈' }}</p>
         <p>Réponse : <b>{{ current.title }}</b> — {{ current.artist }}</p>
         <p v-if="lastResult.guess">
           Ta réponse : « {{ lastResult.guess }} »
@@ -94,20 +104,22 @@
           </span>
           (+{{ lastResult.points }})
         </p>
-        <button @click="next">{{ isLast ? 'Voir les résultats' : 'Suivant' }}</button>
+        <button class="primary" @click="next">{{ isLast ? 'Voir les résultats' : 'Suivant' }}</button>
       </div>
 
-      <p><button @click="endGame">Arrêter la partie</button></p>
+      <p class="stop"><button @click="endGame">Arrêter la partie</button></p>
     </div>
 
     <!-- Lecteur YouTube : toujours présent, masqué tant que la réponse n'est pas révélée -->
-    <div :style="{ display: screen === 'playing' ? 'block' : 'none', opacity: revealed ? 1 : 0 }">
+    <div class="player-box" :class="{ hidden: !revealed }"
+         :style="{ display: screen === 'playing' ? 'block' : 'none', opacity: revealed ? 1 : 0 }">
       <div id="player"></div>
     </div>
 
     <!-- Résultats -->
-    <div v-if="screen === 'end'">
-      <h2>Score final : {{ score }} / {{ playlist.length * pointsPerVideo }}</h2>
+    <div v-if="screen === 'end'" class="screen end">
+      <p v-if="birthday" class="verdict">🎉 Bravo à tous et joyeux anniversaire {{ birthday.name }} ! 🎂</p>
+      <h2 class="final-score">Score final : {{ score }} / {{ playlist.length * pointsPerVideo }}</h2>
       <table border="1">
         <tr><th>#</th><th>Titre</th><th>Artiste</th><th>Ta réponse</th><th>Points</th></tr>
         <tr v-for="(r, i) in results" :key="i">
@@ -118,13 +130,13 @@
           <td>{{ r.points }}</td>
         </tr>
       </table>
-      <p><button @click="screen = 'setup'">Rejouer</button></p>
+      <p><button class="primary" @click="screen = 'setup'">Rejouer</button></p>
     </div>
   </div>
 
   <!-- Template de l'éditeur de liste (composant ListEditor dans editor.js) -->
   <script type="text/x-template" id="editor-template">
-    <div>
+    <div class="screen editor">
       <h2>{{ list.id ? 'Modifier la liste' : 'Nouvelle liste' }}</h2>
       <p><label>Nom : <input v-model="name" size="40"></label></p>
 
@@ -167,6 +179,7 @@
     </div>
   </script>
 
+  <script src="birthday.js"></script>
   <script src="videos.js"></script>
   <script src="youtube.js"></script>
   <script src="storage.js"></script>

@@ -51,6 +51,7 @@ createApp({
   data() {
     return {
       screen: 'setup', // 'setup' | 'editor' | 'playing' | 'end'
+      birthday: BIRTHDAY, // null si le thème anniversaire n'est pas activé
 
       // Listes de vidéos
       savedLists: loadLists(),
@@ -231,6 +232,7 @@ createApp({
       this.score += points;
       this.lastResult = { video: this.current, guess, titleOk, artistOk, points };
       this.results.push(this.lastResult);
+      if (points > 0) confetti(60);
       this.reveal();
     },
 
@@ -253,6 +255,7 @@ createApp({
       this.stopTimer();
       if (this.player) this.player.stopVideo();
       this.screen = 'end';
+      confetti(200);
     },
   },
 }).mount('#app');
