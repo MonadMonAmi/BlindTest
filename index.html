@@ -11,7 +11,31 @@
 
     <!-- Écran de départ -->
     <div v-if="screen === 'setup'">
-      <p>{{ videos.length }} vidéos dans la liste (modifier <code>videos.js</code>).</p>
+      <h2>Liste de vidéos</h2>
+      <p>
+        <select v-model="selectedListId">
+          <option v-for="list in lists" :key="list.id" :value="list.id">
+            {{ list.name }} ({{ list.videos.length }} vidéos)
+          </option>
+        </select>
+        <button @click="editList">Modifier</button>
+        <button v-if="selectedListId !== 'default'" @click="deleteList">Supprimer</button>
+      </p>
+      <p>
+        <button @click="newList">Nouvelle liste</button>
+        <label>ou importer un fichier .json : <input type="file" accept=".json" @change="importList"></label>
+      </p>
+
+      <h2>Réglages</h2>
+      <p>
+        Réponses :
+        <label><input type="radio" v-model="answerMode" :value="4"> 4 choix</label>
+        <label><input type="radio" v-model="answerMode" :value="6"> 6 choix</label>
+        <label><input type="radio" v-model="answerMode" :value="0"> Texte libre</label>
+      </p>
+      <p v-if="answerMode && selectedList.videos.length < answerMode">
+        ⚠ La liste n'a que {{ selectedList.videos.length }} vidéos : il y aura moins de {{ answerMode }} choix.
+      </p>
       <p>
         <label>Durée de l'extrait (secondes) :
           <input type="number" min="1" v-model.number="clipDuration">
@@ -23,18 +47,36 @@
       <button @click="startGame">Commencer</button>
     </div>
 
+    <!-- Création / modification d'une liste -->
+    <list-editor
+      v-if="screen === 'editor'"
+      :list="editingList"
+      @save="saveList"
+      @cancel="screen = 'setup'"
+    ></list-editor>
+
     <!-- Partie en cours -->
     <div v-if="screen === 'playing' && current">
       <p>Vidéo {{ index + 1 }} / {{ playlist.length }} — Score : {{ score }}</p>
 
       <div v-if="!revealed">
         <p>Temps restant : {{ timeLeft }} s</p>
-        <form @submit.prevent="submitGuess">
+
+        <!-- Mode boutons -->
+        <div v-if="answerMode">
+          <p v-for="choice in choices" :key="choice">
+            <button @click="choose(choice)">{{ choice }}</button>
+          </p>
+        </div>
+
+        <!-- Mode texte libre -->
+        <form v-else @submit.prevent="submitGuess">
           <label>Titre et/ou artiste :
             <input v-model="guess" autofocus>
           </label>
           <button type="submit">Valider</button>
         </form>
+
         <p>
           <button @click="playClip">Réécouter l'extrait</button>
           <button @click="skip">Passer</button>
@@ -44,9 +86,12 @@
       <div v-else>
         <p>Réponse : <b>{{ current.title }}</b> — {{ current.artist }}</p>
         <p v-if="lastResult.guess">
-          Ta réponse : « {{ lastResult.guess }} » —
-          titre {{ lastResult.titleOk ? '✔' : '✘' }},
-          artiste {{ lastResult.artistOk ? '✔' : '✘' }}
+          Ta réponse : « {{ lastResult.guess }} »
+          <span v-if="answerMode">{{ lastResult.points ? '✔' : '✘' }}</span>
+          <span v-else>
+            — titre {{ lastResult.titleOk ? '✔' : '✘' }},
+            artiste {{ lastResult.artistOk ? '✔' : '✘' }}
+          </span>
           (+{{ lastResult.points }})
         </p>
         <button @click="next">{{ isLast ? 'Voir les résultats' : 'Suivant' }}</button>
@@ -62,7 +107,7 @@
 
     <!-- Résultats -->
     <div v-if="screen === 'end'">
-      <h2>Score final : {{ score }} / {{ playlist.length * 2 }}</h2>
+      <h2>Score final : {{ score }} / {{ playlist.length * pointsPerVideo }}</h2>
       <table border="1">
         <tr><th>#</th><th>Titre</th><th>Artiste</th><th>Ta réponse</th><th>Points</th></tr>
         <tr v-for="(r, i) in results" :key="i">
@@ -77,7 +122,55 @@
     </div>
   </div>
 
+  <!-- Template de l'éditeur de liste (composant ListEditor dans editor.js) -->
+  <script type="text/x-template" id="editor-template">
+    <div>
+      <h2>{{ list.id ? 'Modifier la liste' : 'Nouvelle liste' }}</h2>
+      <p><label>Nom : <input v-model="name" size="40"></label></p>
+
+      <h3>Ajouter des vidéos</h3>
+      <p>Colle des liens YouTube, un par ligne. Le titre et l'artiste sont remplis automatiquement
+        (un lien avec <code>?t=43</code> fait commencer l'extrait à 43 s).</p>
+      <textarea v-model="urls" rows="6" cols="80"></textarea>
+      <p>
+        <button @click="addFromUrls" :disabled="loading || !urls.trim()">Ajouter et générer les réponses</button>
+        {{ status }}
+      </p>
+
+      <h3>Vidéos ({{ rows.length }})</h3>
+      <table border="1">
+        <tr>
+          <th>#</th><th>Vidéo</th><th>Début (s)</th><th>Artiste</th><th>Titre</th>
+          <th>Autres réponses acceptées (séparées par des virgules)</th><th></th>
+        </tr>
+        <tr v-for="(row, i) in rows" :key="row.youtubeId">
+          <td>{{ i + 1 }}</td>
+          <td><a :href="'https://www.youtube.com/watch?v=' + row.youtubeId" target="_blank">{{ row.youtubeId }}</a></td>
+          <td><input type="number" min="0" v-model.number="row.start" style="width: 5em"></td>
+          <td><input v-model="row.artist"></td>
+          <td><input v-model="row.title" size="30"></td>
+          <td><input v-model="row.alternativesText" size="30"></td>
+          <td>
+            <button @click="regenerate(row)" title="Regénérer artiste et titre depuis YouTube">↻</button>
+            <button @click="move(i, -1)">↑</button>
+            <button @click="move(i, 1)">↓</button>
+            <button @click="remove(i)">✕</button>
+          </td>
+        </tr>
+      </table>
+
+      <p>
+        <button @click="save">Enregistrer</button>
+        <button @click="$emit('cancel')">Annuler</button>
+        <button @click="exportJson">Exporter en .json</button>
+      </p>
+    </div>
+  </script>
+
   <script src="videos.js"></script>
+  <script src="youtube.js"></script>
+  <script src="storage.js"></script>
+  <script src="editor.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
